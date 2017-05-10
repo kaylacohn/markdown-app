@@ -7,3 +7,11 @@ const openFileButton = document.querySelector('#save-markdown');
 const saveMarkdownButton = document.querySelector('#save-markdown');
 const revertButton = document.querySelector('#revert');
 const saveHtmlButton = document.querySelector('#save-html');
+
+const renderMarkdownToHtml = (markdown) => {
+  htmlVIew.innerHTML = marked(markdown, { sanitize: true });
+};
+
+markdownView.addEventListener('keyup', (event) => {
+  renderMarkdownToHtml(event.target.value);
+});
