@@ -1,10 +1,46 @@
 const { app, BrowserWindow, dialog } = require('electron');
 const fs = require('fs');
 
-let mainWindow = null;
+const windows = new Set();
 
-const getFileFromUserSelection = exports.getFileFromUserSelection = () => {
-  const files = dialog.showOpenDialog(mainWindow, {
+const createWindow = exports.createWindow = (file) => {
+  let newWindow = new BrowserWindow({ show: false });
+  windows.add(newWindow);
+
+  newWindow.loadURL(`file://${__dirname}/index.html`);
+
+  newWindow.once('ready-to-show', () => {
+    if (file) openFile(newWindow, file);
+    newWindow.show();
+  });
+
+  newWindow.on('close', (event) => {
+    if (newWindow.isDocumentEdited()) {
+      event.preventDefault();
+      const result = dialog.showMessageBox(newWindow, {
+        type: 'warning',
+        title: 'Quit with Unsaved Changed?',
+        message: 'Your changes will be lost if you do not save first.',
+        buttons: [
+          'Quit Anyway',
+          'Cancel'
+        ],
+        defaultId: 1,
+        cancelId: 1
+      });
+
+      if (result === 0) newWindow.destroy();
+    }
+  });
+
+  newWindow.on('closed', () => {
+    windows.delete(newWindow);
+    newWindow = null;
+  });
+};
+
+const getFileFromUserSelection = exports.getFileFromUserSelection = (targetWindow) => {
+  const files = dialog.showOpenDialog(targetWindow, {
     properties: ['openFile'],
     filters: [
       { name: 'Text Files', extensions: ['txt', 'text'] },
@@ -14,22 +50,42 @@ const getFileFromUserSelection = exports.getFileFromUserSelection = () => {
 
   if (!files) return;
 
-  const file = files[0];
+  return files[0];
+};
+
+const openFile = exports.openFile = (targetWindow, filePath) =>  {
+  const file = filePath || getFileFromUserSelection(targetWindow);
   const content = fs.readFileSync(file).toString();
 
-  mainWindow.webContents.send('file-opened', file, content);
+  app.addRecentDocument(file);
+
+  targetWindow.webContents.send('file-opened', file, content);
+  targetWindow.setRepresentedFilename(file);
+};
+
+const saveMarkdown = exports.saveMarkdown = (targetWindow, file, content) => {
+  if (!file) {
+    file = dialog.showSaveDialog(targetWindow, {
+      title: 'Save Markdown',
+      defaultPath: app.getPath('documents'),
+      filters: [
+        { name: 'Markdown Files', extensions: ['md', 'markdown'] }
+      ]
+    });
+  }
+
+  if (!file) return;
+
+  fs.writeFileSync(file, content);
+  targetWindow.webContents.send('file-opened', file, content);
 };
 
 app.on('ready', () => {
-  mainWindow = new BrowserWindow({ show: false });
+  createWindow();
+});
 
-  mainWindow.loadURL(`file://${__dirname}/index.html`);
-
-  mainWindow.once('ready-to-show', () => {
-    mainWindow.show();
-  });
-
-  mainWindow.on('closed', () => {
-    mainWindow = null;
+app.on('will-finish-launching', () => {
+  app.on('open-file', (event, filePath) => {
+    createWindow(filePath);
   });
 });
