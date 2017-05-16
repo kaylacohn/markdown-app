@@ -30,14 +30,6 @@ const updateEditedState = (isEdited) => {
   currentWindow.setTitle(title);
 };
 
-const revertContent = (file) => {
-  originalContent = content;
-  debugger;
-  if (currentWindow.isDocumentEdited()) {
-    markdownView.value = originalContent;
-  }
-};
-
 markdownView.addEventListener('keyup', (event) => {
   const currentContent = event.target.value;
   renderMarkdownToHtml(currentContent);
@@ -57,7 +49,8 @@ saveMarkdownButton.addEventListener('click', () => {
 });
 
 revertButton.addEventListener('click', () => {
-  revertContent(markdownView.value);
+  markdownView.value = originalContent;
+  renderMarkdownToHtml(originalContent);
 });
 
 ipcRenderer.on('file-opened', (event, file, content) => {
